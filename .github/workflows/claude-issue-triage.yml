@@ -57,7 +57,11 @@ jobs:
 
             4. Publica un comentario de diagnóstico en el issue con
                `gh issue comment ${{ github.event.issue.number }} --body "<markdown>"`,
-               usando EXACTAMENTE estas secciones en español y en Markdown:
+               usando EXACTAMENTE estas secciones en español y en Markdown. El contenido
+               debe estar en formato Markdown válido y bien formado (encabezados con `#`,
+               listas con `-`, bloques de código con triple backtick indicando el lenguaje,
+               *itálica*/**negrita** cuando aplique, etc.) para que GitHub lo renderice
+               correctamente en la interfaz del issue, no como texto plano:
 
                ## 🔍 Diagnóstico automático de Claude
                ### Resumen
