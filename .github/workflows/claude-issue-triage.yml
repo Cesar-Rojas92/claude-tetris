@@ -1,0 +1,81 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # Necesario para añadir/crear labels y comentar en el issue
+      id-token: write # Requerido por la OAuth de claude-code-action
+      pull-requests: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Analizar issue con Claude
+        id: claude-triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Restringe las herramientas a solo los comandos gh necesarios para el triage.
+          claude_args: >-
+            --allowed-tools
+            "Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh issue list:*),Bash(gh label list:*),Bash(gh label create:*)"
+
+          prompt: |
+            Eres el responsable de triage de issues del repositorio ${{ github.repository }}.
+            Se ha abierto o editado el issue número ${{ github.event.issue.number }}.
+            Tu objetivo es analizarlo, etiquetarlo y publicar un diagnóstico que sirva
+            de base para implementar la solución en código más adelante.
+
+            Sigue estos pasos con la CLI `gh` (ya tienes autenticación configurada):
+
+            1. Lee el issue completo:
+               `gh issue view ${{ github.event.issue.number }} --json number,title,body,labels,comments`
+
+            2. Revisa el código del repositorio (game.js, index.html, style.css y el
+               README) para entender el contexto del problema o la petición.
+
+            3. Etiquetado:
+               - Lista las labels existentes con `gh label list`.
+               - Elige las labels apropiadas para este issue (tipo: bug / enhancement /
+                 documentation / question, y prioridad: priority:high / priority:medium /
+                 priority:low según el impacto).
+               - Si alguna label adecuada NO existe todavía, créala con
+                 `gh label create "<nombre>" --description "<desc>" --color "<hex>"`.
+               - Antes de añadir una label, comprueba si el issue ya la tiene (del JSON
+                 del paso 1) para no duplicar. Aplica solo las que falten con
+                 `gh issue edit ${{ github.event.issue.number }} --add-label "<label1>,<label2>"`.
+
+            4. Publica un comentario de diagnóstico en el issue con
+               `gh issue comment ${{ github.event.issue.number }} --body "<markdown>"`,
+               usando EXACTAMENTE estas secciones en español y en Markdown:
+
+               ## 🔍 Diagnóstico automático de Claude
+               ### Resumen
+               (2-3 frases describiendo el problema o la petición)
+               ### Causa probable
+               (hipótesis técnica de la causa raíz; si es una feature, el gap actual)
+               ### Archivos / áreas afectadas
+               (lista de archivos concretos, ej. `game.js`, y funciones relevantes)
+               ### Enfoque de solución sugerido
+               (pasos de implementación de alto nivel que otro Claude pueda seguir para escribir el código)
+               ### Criterios de aceptación
+               (lista de condiciones verificables para considerar el issue resuelto)
+
+            5. Idempotencia: este workflow también corre cuando se edita el issue. Antes
+               de comentar, revisa los comentarios existentes (paso 1). Si ya publicaste
+               un "Diagnóstico automático de Claude" antes, publica uno nuevo indicando
+               al inicio "_Diagnóstico actualizado tras editar el issue._" en lugar de
+               repetir contenido obsoleto.
+
+            No modifiques código en este workflow: tu único trabajo aquí es etiquetar y
+            diagnosticar. Responde en español.
